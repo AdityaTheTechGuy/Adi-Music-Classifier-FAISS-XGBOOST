@@ -14,7 +14,7 @@ from config import settings
 
 app = FastAPI(title="EchoMatch Hyper-Scale Recommendation Engine")
 
-# 🔒 SECURITY NOTE: Configured to only trust your explicit production HTTPS web domain
+# 🔒 SECURITY LAYER: Only accept traffic from your production frontend origin
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://adityathetechguy.github.io"], 
@@ -30,12 +30,13 @@ faiss_index = None
 engineered_feature_list = []
 xgb_model = None
 label_encoder = None
+unique_tracks = []  # ⚡ RAM Cache for blazing-fast lookups
 
 @app.on_event("startup")
 async def startup_event():
-    global df_metadata, df_vectors, faiss_index, engineered_feature_list, xgb_model, label_encoder
+    global df_metadata, df_vectors, faiss_index, engineered_feature_list, xgb_model, label_encoder, unique_tracks
     
-    # 📥 1. Automatically fetch dataset if missing or empty
+    # 📥 1. Fetch dataset if missing
     if not os.path.exists('dataset.csv') or os.path.getsize('dataset.csv') == 0:
         print("📥 Dataset missing or empty. Downloading from cloud asset storage...")
         DATASET_URL = "https://github.com/AdityaTheTechGuy/Adi-Music-Classifier-FAISS-XGBOOST/releases/download/v1.0-assets/dataset.csv"
@@ -43,7 +44,7 @@ async def startup_event():
             with httpx.Client() as client:
                 f.write(client.get(DATASET_URL, follow_redirects=True).content)
                 
-    # 📥 2. Automatically fetch model artifacts if missing or empty
+    # 📥 2. Fetch model artifacts if missing
     if not os.path.exists('xgboost_genre_artifacts.joblib') or os.path.getsize('xgboost_genre_artifacts.joblib') == 0:
         print("📥 Model artifacts missing or empty. Downloading...")
         MODEL_URL = "https://github.com/AdityaTheTechGuy/Adi-Music-Classifier-FAISS-XGBOOST/releases/download/v1.0-assets/xgboost_genre_artifacts.joblib"
@@ -59,7 +60,11 @@ async def startup_event():
     
     xgb_model, label_encoder = load_xgboost_classifier('xgboost_genre_artifacts.joblib')
     
-    print(f"✅ Setup complete. Vector Maps: {faiss_index.ntotal} | Model Loaded: {xgb_model is not None}")
+    # 🌟 OPTIMIZATION: Extract and cache unique string references into system memory
+    if df_metadata is not None:
+        unique_tracks = [str(track) for track in df_metadata['track_name'].dropna().unique()]
+    
+    print(f"✅ Setup complete. Vector Maps: {faiss_index.ntotal} | Cached Unique Tracks: {len(unique_tracks)}")
 
 class RecommendationRequest(BaseModel):
     song_name: str
@@ -89,13 +94,14 @@ def recommend(request: RecommendationRequest):
 
 @app.get("/autocomplete/")
 def autocomplete_search(q: str):
-    if df_metadata is None:
-        return {"suggestions": []}
-    if not q or len(q) < 2:
+    global unique_tracks
+    if not unique_tracks or not q or len(q) < 2:
         return {"suggestions": []}
     
     q_lower = q.lower()
-    matches = df_metadata[df_metadata['track_name'].str.contains(q, case=False, na=False)]['track_name'].dropna().unique()
+    
+    # 🚀 Performance Fix: Native O(N) list filtering bypasses heavy Pandas regex scanning engines
+    matches = [track for track in unique_tracks if q_lower in track.lower()]
     
     def sort_key(track_name):
         name_lower = track_name.lower()
@@ -121,17 +127,8 @@ def get_token_from_header(authorization: str = Header(None)) -> str:
     return authorization.split(" ")[1]
 
 @app.get("/auth/spotify/login")
-def spotify_login(response: Response):
-    # 🔒 Anti-CSRF Token Generation
+def spotify_login():
     state_token = secrets.token_urlsafe(32)
-    response.set_cookie(
-        key="oauth_state_spotify", 
-        value=state_token, 
-        httponly=True, 
-        samesite="lax", 
-        secure=True
-    )
-    
     scopes = "playlist-modify-public playlist-modify-private"
     params = {
         "client_id": settings.spotify_client_id,
@@ -143,14 +140,22 @@ def spotify_login(response: Response):
     }
     url_args = urllib.parse.urlencode(params)
     auth_url = f"https://accounts.spotify.com/authorize?{url_args}"
-    return RedirectResponse(auth_url)
+    
+    response = RedirectResponse(auth_url)
+    response.set_cookie(
+        key="oauth_state_spotify", 
+        value=state_token, 
+        httponly=True, 
+        samesite="lax", 
+        secure=True
+    )
+    return response
 
 @app.get("/auth/spotify/callback")
 async def spotify_callback(code: str = None, error: str = None, state: str = None, oauth_state_spotify: str = Cookie(None)):
     if error:
         raise HTTPException(status_code=400, detail=f"Spotify Authorization Failed: {error}")
     
-    # 🔒 Validate State Token
     if not state or not oauth_state_spotify or state != oauth_state_spotify:
         raise HTTPException(status_code=403, detail="Anti-forgery state token mismatch. Request blocked.")
         
@@ -225,17 +230,8 @@ async def create_spotify_playlist(request: PlaylistRequest, access_token: str = 
         }
 
 @app.get("/auth/youtube/login")
-def youtube_login(response: Response):
-    # 🔒 Anti-CSRF Token Generation
+def youtube_login():
     state_token = secrets.token_urlsafe(32)
-    response.set_cookie(
-        key="oauth_state_youtube", 
-        value=state_token, 
-        httponly=True, 
-        samesite="lax", 
-        secure=True
-    )
-    
     scopes = "https://www.googleapis.com/auth/youtube"
     params = {
         "client_id": settings.google_client_id,
@@ -248,14 +244,22 @@ def youtube_login(response: Response):
     }
     url_args = urllib.parse.urlencode(params)
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{url_args}"
-    return RedirectResponse(auth_url)
+    
+    response = RedirectResponse(auth_url)
+    response.set_cookie(
+        key="oauth_state_youtube", 
+        value=state_token, 
+        httponly=True, 
+        samesite="lax", 
+        secure=True
+    )
+    return response
 
 @app.get("/auth/youtube/callback")
 async def youtube_callback(code: str = None, error: str = None, state: str = None, oauth_state_youtube: str = Cookie(None)):
     if error:
         raise HTTPException(status_code=400, detail=f"Google Authorization Failed: {error}")
     
-    # 🔒 Validate State Token
     if not state or not oauth_state_youtube or state != oauth_state_youtube:
         raise HTTPException(status_code=403, detail="Anti-forgery state token mismatch. Request blocked.")
         
