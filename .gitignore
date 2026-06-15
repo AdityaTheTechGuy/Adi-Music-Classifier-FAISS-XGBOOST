@@ -4,3 +4,5 @@ __pycache__/
 *.pyc
 
 # Machine Learning Assets
+dataset.csv
+xgboost_genre_artifacts.joblib
