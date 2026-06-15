@@ -34,21 +34,23 @@ label_encoder = None
 async def startup_event():
     global df_metadata, df_vectors, faiss_index, engineered_feature_list, xgb_model, label_encoder
     
-    # 📥 1. Automatically fetch dataset if missing from the container environment
-    if not os.path.exists('dataset.csv'):
-        print("📥 Dataset missing. Downloading from cloud asset storage...")
+   # 📥 1. Automatically fetch dataset if missing or empty
+    if not os.path.exists('dataset.csv') or os.path.getsize('dataset.csv') == 0:
+        print("📥 Dataset missing or empty. Downloading from cloud asset storage...")
         DATASET_URL = "https://github.com/AdityaTheTechGuy/Adi-Music-Classifier-FAISS-XGBOOST/releases/download/v1.0-assets/dataset.csv"
         with open('dataset.csv', 'wb') as f:
             with httpx.Client() as client:
-                f.write(client.get(DATASET_URL).content)
+                # 🌟 FIXED: Added follow_redirects=True
+                f.write(client.get(DATASET_URL, follow_redirects=True).content)
                 
-    # 📥 2. Automatically fetch model artifacts if missing
-    if not os.path.exists('xgboost_genre_artifacts.joblib'):
-        print("📥 Model artifacts missing. Downloading...")
+    # 📥 2. Automatically fetch model artifacts if missing or empty
+    if not os.path.exists('xgboost_genre_artifacts.joblib') or os.path.getsize('xgboost_genre_artifacts.joblib') == 0:
+        print("📥 Model artifacts missing or empty. Downloading...")
         MODEL_URL = "https://github.com/AdityaTheTechGuy/Adi-Music-Classifier-FAISS-XGBOOST/releases/download/v1.0-assets/xgboost_genre_artifacts.joblib"
         with open('xgboost_genre_artifacts.joblib', 'wb') as f:
             with httpx.Client() as client:
-                f.write(client.get(MODEL_URL).content)
+                # 🌟 FIXED: Added follow_redirects=True
+                f.write(client.get(MODEL_URL, follow_redirects=True).content)
 
     print("📊 Executing data cleaning and high-dimensional TF-IDF transformations...")
     df_metadata, df_vectors, engineered_feature_list = run_data_pipeline('dataset.csv')
