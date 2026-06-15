@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import numpy as np
 import urllib.parse
 import httpx 
+import os
 
 from data_pipeline import run_data_pipeline
 from engine import build_faiss_index, get_hybrid_recommendations, load_xgboost_classifier
@@ -28,8 +29,6 @@ faiss_index = None
 engineered_feature_list = []
 xgb_model = None
 label_encoder = None
-
-import os
 
 @app.on_event("startup")
 async def startup_event():
@@ -115,7 +114,6 @@ def autocomplete_search(q: str):
 # 🔐 AUTHENTICATION ENDPOINTS (SPOTIFY & YOUTUBE PIPELINE)
 # =====================================================================
 
-# Helper dependency to securely extract and parse Authorization Bearer tokens
 def get_token_from_header(authorization: str = Header(None)) -> str:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing or malformed Authorization header indicator.")
@@ -123,9 +121,6 @@ def get_token_from_header(authorization: str = Header(None)) -> str:
 
 @app.get("/auth/spotify/login")
 def spotify_login():
-    """
-    Step 1: Direct user's browser to Spotify Accounts portal.
-    """
     scopes = "playlist-modify-public playlist-modify-private"
     params = {
         "client_id": settings.spotify_client_id,
@@ -140,9 +135,6 @@ def spotify_login():
 
 @app.get("/auth/spotify/callback")
 async def spotify_callback(code: str = None, error: str = None):
-    """
-    Step 2: Catch the incoming code from Spotify and swap it for an Access Token.
-    """
     if error:
         raise HTTPException(status_code=400, detail=f"Spotify Authorization Failed: {error}")
     if not code:
@@ -165,7 +157,9 @@ async def spotify_callback(code: str = None, error: str = None):
         raise HTTPException(status_code=response.status_code, detail="Failed to retrieve access token from Spotify.")
         
     token_data = response.json()
-    frontend_url = f"http://127.0.0.1:8000/?spotify_token={token_data['access_token']}"
+    
+    # 🌟 FIXED: Target production GitHub Pages endpoint context
+    frontend_url = f"https://adityathetechguy.github.io/Adi-Music-Classifier-FAISS-XGBOOST/?spotify_token={token_data['access_token']}"
     return RedirectResponse(frontend_url)
     
 class PlaylistRequest(BaseModel):
@@ -174,9 +168,6 @@ class PlaylistRequest(BaseModel):
 
 @app.post("/playlist/spotify/create")
 async def create_spotify_playlist(request: PlaylistRequest, access_token: str = Depends(get_token_from_header)):
-    """
-    Step 3: Create a playlist and populate it ONLY with user-approved tracks.
-    """
     async with httpx.AsyncClient() as client:
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -220,9 +211,6 @@ async def create_spotify_playlist(request: PlaylistRequest, access_token: str = 
 
 @app.get("/auth/youtube/login")
 def youtube_login():
-    """
-    Step 1: Redirect the user to Google's OAuth 2.0 portal.
-    """
     scopes = "https://www.googleapis.com/auth/youtube"
     params = {
         "client_id": settings.google_client_id,
@@ -238,9 +226,6 @@ def youtube_login():
 
 @app.get("/auth/youtube/callback")
 async def youtube_callback(code: str = None, error: str = None):
-    """
-    Step 2: Catch the incoming authorization code from Google and exchange it for tokens.
-    """
     if error:
         raise HTTPException(status_code=400, detail=f"Google Authorization Failed: {error}")
     if not code:
@@ -262,7 +247,9 @@ async def youtube_callback(code: str = None, error: str = None):
         raise HTTPException(status_code=response.status_code, detail="Failed to retrieve tokens from Google.")
         
     token_data = response.json()
-    frontend_url = f"http://127.0.0.1:8000/?youtube_token={token_data['access_token']}"
+    
+    # 🌟 FIXED: Target production GitHub Pages endpoint context
+    frontend_url = f"https://adityathetechguy.github.io/Adi-Music-Classifier-FAISS-XGBOOST/?youtube_token={token_data['access_token']}"
     return RedirectResponse(frontend_url)
 
 class YouTubePlaylistRequest(BaseModel):
@@ -271,9 +258,6 @@ class YouTubePlaylistRequest(BaseModel):
 
 @app.post("/playlist/youtube/create")
 async def create_youtube_playlist(request: YouTubePlaylistRequest, access_token: str = Depends(get_token_from_header)):
-    """
-    Step 3: Automatically create a YouTube playlist and insert user-approved official audio tracks.
-    """
     async with httpx.AsyncClient() as client:
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -348,9 +332,6 @@ class AddSingleTrackRequest(BaseModel):
 
 @app.get("/playlists/youtube")
 async def get_youtube_playlists(access_token: str = Depends(get_token_from_header)):
-    """
-    Fetch all active playlists from the user's YouTube Music account.
-    """
     async with httpx.AsyncClient() as client:
         headers = {"Authorization": f"Bearer {access_token}"}
         url = "https://www.googleapis.com/youtube/v3/playlists?part=snippet&maxResults=50&mine=true"
@@ -363,9 +344,6 @@ async def get_youtube_playlists(access_token: str = Depends(get_token_from_heade
 
 @app.post("/playlist/youtube/create-empty")
 async def create_empty_playlist(request: CreateEmptyPlaylistRequest, access_token: str = Depends(get_token_from_header)):
-    """
-    Build an empty playlist container and return its new unique ID.
-    """
     async with httpx.AsyncClient() as client:
         headers = {
             "Authorization": f"Bearer {access_token}",
@@ -386,9 +364,6 @@ async def create_empty_playlist(request: CreateEmptyPlaylistRequest, access_toke
 
 @app.post("/playlist/youtube/add-track")
 async def add_track_to_playlist(request: AddSingleTrackRequest, access_token: str = Depends(get_token_from_header)):
-    """
-    Resolve a track query string and inject it into a specific target playlist.
-    """
     async with httpx.AsyncClient() as client:
         # 1. Resolve to Official Audio Link
         search_url = "https://www.googleapis.com/youtube/v3/search"
