@@ -4,6 +4,3 @@ __pycache__/
 *.pyc
 
 # Machine Learning Assets
-dataset.csv
-*.joblib
-*.csv
