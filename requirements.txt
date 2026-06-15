@@ -1,0 +1,17 @@
+# Core API Framework
+fastapi>=0.111.0
+uvicorn>=0.30.0
+
+# Security & Configuration
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+python-dotenv>=1.0.1
+
+# Machine Learning & Vector Search
+faiss-cpu>=1.8.0
+xgboost>=2.0.0
+pandas>=2.2.0
+numpy>=1.26.0
+
+# HTTP Client (Required for future Spotify/YouTube API OAuth requests)
+httpx>=0.27.0
