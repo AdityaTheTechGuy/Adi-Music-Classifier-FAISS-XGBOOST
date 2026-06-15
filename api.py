@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, Response, Cookie
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -6,6 +6,7 @@ import numpy as np
 import urllib.parse
 import httpx 
 import os
+import secrets
 
 from data_pipeline import run_data_pipeline
 from engine import build_faiss_index, get_hybrid_recommendations, load_xgboost_classifier
@@ -13,12 +14,12 @@ from config import settings
 
 app = FastAPI(title="EchoMatch Hyper-Scale Recommendation Engine")
 
-# 🔒 SECURITY NOTE: For production verification, swap ["*"] out with your explicit HTTPS web domain
+# 🔒 SECURITY NOTE: Configured to only trust your explicit production HTTPS web domain
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://adityathetechguy.github.io"], 
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"], 
     allow_headers=["*"],
 )
 
@@ -34,13 +35,12 @@ label_encoder = None
 async def startup_event():
     global df_metadata, df_vectors, faiss_index, engineered_feature_list, xgb_model, label_encoder
     
-   # 📥 1. Automatically fetch dataset if missing or empty
+    # 📥 1. Automatically fetch dataset if missing or empty
     if not os.path.exists('dataset.csv') or os.path.getsize('dataset.csv') == 0:
         print("📥 Dataset missing or empty. Downloading from cloud asset storage...")
         DATASET_URL = "https://github.com/AdityaTheTechGuy/Adi-Music-Classifier-FAISS-XGBOOST/releases/download/v1.0-assets/dataset.csv"
         with open('dataset.csv', 'wb') as f:
             with httpx.Client() as client:
-                # 🌟 FIXED: Added follow_redirects=True
                 f.write(client.get(DATASET_URL, follow_redirects=True).content)
                 
     # 📥 2. Automatically fetch model artifacts if missing or empty
@@ -49,7 +49,6 @@ async def startup_event():
         MODEL_URL = "https://github.com/AdityaTheTechGuy/Adi-Music-Classifier-FAISS-XGBOOST/releases/download/v1.0-assets/xgboost_genre_artifacts.joblib"
         with open('xgboost_genre_artifacts.joblib', 'wb') as f:
             with httpx.Client() as client:
-                # 🌟 FIXED: Added follow_redirects=True
                 f.write(client.get(MODEL_URL, follow_redirects=True).content)
 
     print("📊 Executing data cleaning and high-dimensional TF-IDF transformations...")
@@ -122,23 +121,39 @@ def get_token_from_header(authorization: str = Header(None)) -> str:
     return authorization.split(" ")[1]
 
 @app.get("/auth/spotify/login")
-def spotify_login():
+def spotify_login(response: Response):
+    # 🔒 Anti-CSRF Token Generation
+    state_token = secrets.token_urlsafe(32)
+    response.set_cookie(
+        key="oauth_state_spotify", 
+        value=state_token, 
+        httponly=True, 
+        samesite="lax", 
+        secure=True
+    )
+    
     scopes = "playlist-modify-public playlist-modify-private"
     params = {
         "client_id": settings.spotify_client_id,
         "response_type": "code",
         "redirect_uri": settings.spotify_redirect_uri,
         "scope": scopes,
-        "show_dialog": "true" 
+        "show_dialog": "true",
+        "state": state_token
     }
     url_args = urllib.parse.urlencode(params)
     auth_url = f"https://accounts.spotify.com/authorize?{url_args}"
     return RedirectResponse(auth_url)
 
 @app.get("/auth/spotify/callback")
-async def spotify_callback(code: str = None, error: str = None):
+async def spotify_callback(code: str = None, error: str = None, state: str = None, oauth_state_spotify: str = Cookie(None)):
     if error:
         raise HTTPException(status_code=400, detail=f"Spotify Authorization Failed: {error}")
+    
+    # 🔒 Validate State Token
+    if not state or not oauth_state_spotify or state != oauth_state_spotify:
+        raise HTTPException(status_code=403, detail="Anti-forgery state token mismatch. Request blocked.")
+        
     if not code:
         raise HTTPException(status_code=400, detail="Missing authorization code from Spotify.")
 
@@ -159,8 +174,6 @@ async def spotify_callback(code: str = None, error: str = None):
         raise HTTPException(status_code=response.status_code, detail="Failed to retrieve access token from Spotify.")
         
     token_data = response.json()
-    
-    # 🌟 FIXED: Target production GitHub Pages endpoint context
     frontend_url = f"https://adityathetechguy.github.io/Adi-Music-Classifier-FAISS-XGBOOST/?spotify_token={token_data['access_token']}"
     return RedirectResponse(frontend_url)
     
@@ -212,7 +225,17 @@ async def create_spotify_playlist(request: PlaylistRequest, access_token: str = 
         }
 
 @app.get("/auth/youtube/login")
-def youtube_login():
+def youtube_login(response: Response):
+    # 🔒 Anti-CSRF Token Generation
+    state_token = secrets.token_urlsafe(32)
+    response.set_cookie(
+        key="oauth_state_youtube", 
+        value=state_token, 
+        httponly=True, 
+        samesite="lax", 
+        secure=True
+    )
+    
     scopes = "https://www.googleapis.com/auth/youtube"
     params = {
         "client_id": settings.google_client_id,
@@ -220,16 +243,22 @@ def youtube_login():
         "response_type": "code",
         "scope": scopes,
         "access_type": "offline",     
-        "prompt": "consent"            
+        "prompt": "consent",
+        "state": state_token
     }
     url_args = urllib.parse.urlencode(params)
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{url_args}"
     return RedirectResponse(auth_url)
 
 @app.get("/auth/youtube/callback")
-async def youtube_callback(code: str = None, error: str = None):
+async def youtube_callback(code: str = None, error: str = None, state: str = None, oauth_state_youtube: str = Cookie(None)):
     if error:
         raise HTTPException(status_code=400, detail=f"Google Authorization Failed: {error}")
+    
+    # 🔒 Validate State Token
+    if not state or not oauth_state_youtube or state != oauth_state_youtube:
+        raise HTTPException(status_code=403, detail="Anti-forgery state token mismatch. Request blocked.")
+        
     if not code:
         raise HTTPException(status_code=400, detail="Missing code from Google.")
 
@@ -249,8 +278,6 @@ async def youtube_callback(code: str = None, error: str = None):
         raise HTTPException(status_code=response.status_code, detail="Failed to retrieve tokens from Google.")
         
     token_data = response.json()
-    
-    # 🌟 FIXED: Target production GitHub Pages endpoint context
     frontend_url = f"https://adityathetechguy.github.io/Adi-Music-Classifier-FAISS-XGBOOST/?youtube_token={token_data['access_token']}"
     return RedirectResponse(frontend_url)
 
@@ -367,7 +394,6 @@ async def create_empty_playlist(request: CreateEmptyPlaylistRequest, access_toke
 @app.post("/playlist/youtube/add-track")
 async def add_track_to_playlist(request: AddSingleTrackRequest, access_token: str = Depends(get_token_from_header)):
     async with httpx.AsyncClient() as client:
-        # 1. Resolve to Official Audio Link
         search_url = "https://www.googleapis.com/youtube/v3/search"
         search_params = {
             "part": "id", "q": f"{request.track_name} Official Audio",
@@ -380,7 +406,6 @@ async def add_track_to_playlist(request: AddSingleTrackRequest, access_token: st
             raise HTTPException(status_code=404, detail="Track matching signature not found.")
         video_id = items[0]["id"]["videoId"]
 
-        # 2. Inject directly into the targeted Playlist ID
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"
@@ -396,3 +421,7 @@ async def add_track_to_playlist(request: AddSingleTrackRequest, access_token: st
         if insert_res.status_code not in (200, 201):
             raise HTTPException(status_code=insert_res.status_code, detail="Injection mapping failed.")
         return {"status": "success", "video_id": video_id}
+
+@app.get("/health")
+def health_check():
+    return {"status": "online", "worker": "active"}
