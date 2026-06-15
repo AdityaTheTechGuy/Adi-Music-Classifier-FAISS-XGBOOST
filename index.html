@@ -16,7 +16,7 @@
         /* ── MAIN OVERLAY ── */
         .ui {
             position: fixed; inset: 0; z-index: 10;
-            pointer-events: none; /* Let clicks pass through to canvas if needed */
+            pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 32px 40px; color: #fff;
         }
@@ -33,18 +33,58 @@
         #mood-name { font-size: 12px; letter-spacing: 0.3em; color: rgba(255, 255, 255, 0.9); }
         .mood-time { font-family: "Instrument Serif", serif; font-size: 26px; font-variant-numeric: tabular-nums; margin-top: 2px; color: #fff; }
 
+        /* Auth Panel Styling */
+        .sync-controls { display: flex; gap: 12px; margin-top: 8px; pointer-events: auto; }
+        
+        .auth-btn {
+            background: rgba(10, 16, 28, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.65);
+            padding: 10px 22px;
+            font-size: 11px;
+            font-family: "DM Mono", monospace;
+            border-radius: 999px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+
+        .auth-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.35);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        .auth-btn.active {
+            border-color: rgba(255, 210, 127, 0.35);
+            color: #ffd27f;
+            background: rgba(10, 16, 28, 0.6);
+            box-shadow: 0 4px 20px rgba(255, 210, 127, 0.08);
+        }
+
+        .auth-btn.active:hover {
+            background: rgba(255, 210, 127, 0.08);
+            border-color: #ffd27f;
+            color: #ffd27f;
+        }
+
         /* ── ECHOMATCH APP CONTAINER ── */
         .app-container {
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             width: 100%; max-width: 900px;
-            pointer-events: auto; /* Re-enable clicks for the app */
+            pointer-events: auto;
             display: flex; flex-direction: column; gap: 24px;
             max-height: calc(100vh - 280px);
         }
 
-        /* The Search Bar (Styled to match the slider) */
+        /* The Search Bar */
         .search-wrap {
             display: flex; align-items: center; justify-content: center;
             width: min(500px, 90vw); margin: 0 auto;
@@ -62,18 +102,15 @@
         input[type="text"]::placeholder { color: rgba(255,255,255,0.4); }
         input[type="text"]:focus { border-color: rgba(255,255,255,0.5); }
 
-        /* API Loading State */
         #loader { text-align: center; font-style: italic; color: rgba(255,255,255,0.6); font-size: 12px; display: none; }
         #error { text-align: center; color: #ff7e54; font-size: 12px; }
 
         /* Results Grid */
         .results-grid {
             display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
-            display: none; overflow-y: auto; padding-right: 10px;
-            padding-bottom: 20px;
+            display: none; overflow-y: auto; padding-right: 10px; padding-bottom: 20px;
         }
         
-        /* Custom Scrollbar for results */
         .results-grid::-webkit-scrollbar { width: 4px; }
         .results-grid::-webkit-scrollbar-track { background: transparent; }
         .results-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
@@ -94,11 +131,26 @@
         
         .exclude-btn {
             background: transparent; border: 1px solid rgba(255,255,255,0.2);
-            color: rgba(255,255,255,0.6); border-radius: 999px; padding: 4px 10px;
+            color: rgba(255,255,255,0.6); border-radius: 999px; padding: 6px 14px;
             font-family: "DM Mono", monospace; font-size: 10px; cursor: pointer; transition: 0.2s;
-            margin-top: 8px;
         }
         .exclude-btn:hover { background: rgba(255, 126, 84, 0.2); color: #ff7e54; border-color: #ff7e54; }
+
+        /* Custom Dynamic Dropdown Controls styling */
+        .playlist-select {
+            background: rgba(10, 16, 28, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #fff;
+            font-family: "DM Mono", monospace;
+            font-size: 11px;
+            padding: 6px 14px;
+            border-radius: 999px;
+            outline: none;
+            max-width: 170px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .playlist-select:focus { border-color: #ffd27f; }
 
         .column-title { font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.8); border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px; margin-bottom: 16px; text-transform: uppercase; }
 
@@ -119,22 +171,13 @@
             .ui { padding: 22px; }
         }
 
-        /* ── AUTOCOMPLETE ITEM INTERACTIONS ── */
         .suggestion-item {
-            padding: 12px 20px;
-            font-size: 13px;
-            letter-spacing: 0.03em;
-            color: rgba(255, 255, 255, 0.85);
-            cursor: pointer;
-            transition: background 0.2s, color 0.2s;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 12px 20px; font-size: 13px; letter-spacing: 0.03em;
+            color: rgba(255, 255, 255, 0.85); cursor: pointer;
+            transition: background 0.2s, color 0.2s; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         .suggestion-item:last-child { border-bottom: none; }
-        .suggestion-item:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #ffd27f; /* Glow text golden on hover */
-        }
-
+        .suggestion-item:hover { background: rgba(255, 255, 255, 0.08); color: #ffd27f; }
     </style>
 </head>
 <body>
@@ -143,7 +186,12 @@
 
     <div class="ui">
         <div class="ui-top">
-            <div class="label">◑ &nbsp;E C H O M A T C H</div>
+            <div>
+                <div class="label">◑  E C H O M A T C H</div>
+                <div class="sync-controls">
+                    <button class="auth-btn" id="btn-yt" onclick="connectService('youtube')">○ Connect YouTube Music</button>
+                </div>
+            </div>
             <div class="mood">
                 <span id="mood-name">GOLDEN HOUR</span>
                 <span class="mood-time" id="mood-time">19:12</span>
@@ -155,19 +203,10 @@
                 <input type="text" id="searchInput" placeholder="Search a track (e.g. Kesariya)..." onkeydown="if(event.key === 'Enter') triggerSearch()" autocomplete="off">
                 
                 <div id="suggestionsBox" style="
-                    position: absolute;
-                    top: calc(100% + 8px);
-                    left: 0;
-                    width: 100%;
-                    background: rgba(10, 16, 28, 0.85);
-                    border: 1px solid rgba(255, 255, 255, 0.16);
-                    border-radius: 12px;
-                    backdrop-filter: blur(20px);
-                    -webkit-backdrop-filter: blur(20px);
-                    max-height: 240px;
-                    overflow-y: auto;
-                    display: none;
-                    z-index: 9999;
+                    position: absolute; top: calc(100% + 8px); left: 0; width: 100%;
+                    background: rgba(10, 16, 28, 0.85); border: 1px solid rgba(255, 255, 255, 0.16);
+                    border-radius: 12px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+                    max-height: 240px; overflow-y: auto; display: none; z-index: 9999;
                     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
                 "></div>
             </div>
@@ -350,9 +389,90 @@
     </script>
 
     <script>
+        const BACKEND_URL = "http://127.0.0.1:5500";
+        
         let currentSearchQuery = "";
         let rejectedIds = [];
+        let userPlaylists = []; 
 
+        function connectService(service) {
+            const tokenKey = `${service}_token`;
+            const isYouTube = service === 'youtube';
+            
+            if (localStorage.getItem(tokenKey)) {
+                const displayName = isYouTube ? 'YouTube Music' : 'Spotify';
+                if (confirm(`✦ EchoMatch is already securely linked to ${displayName}.\n\nWould you like to disconnect your account?`)) {
+                    localStorage.removeItem(tokenKey);
+                    location.reload();
+                }
+                return; 
+            }
+            window.location.href = `${BACKEND_URL}/auth/${service}/login`;
+        }
+
+        // Fetch live account playlists from the YouTube vertical
+        async function fetchUserPlaylists() {
+            const token = localStorage.getItem('youtube_token');
+            if (!token) return;
+            try {
+                const res = await fetch(`${BACKEND_URL}/playlists/youtube`, {
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                }); 
+                if (res.ok) {
+                    userPlaylists = await res.json();
+                }
+            } catch (err) {
+                console.error("Account playlist engine sync error:", err);
+            }
+        }
+
+        // Helper to cleanly update options on any given select dropdown element
+        function updateDropdownOptions(selectElement) {
+            let optionsHtml = `<option value="new" style="background:#06080f; color:#ffd27f;">┼ CREATE NEW PLAYLIST...</option>`;
+            userPlaylists.forEach(pl => {
+                optionsHtml += `<option value="${pl.id}" style="background:#06080f; color:#fff;">${pl.title}</option>`;
+            });
+            selectElement.innerHTML = optionsHtml;
+        }
+
+        // Individual card track deployment architecture
+        async function addSingleTrack(cardIndex, trackName) {
+            const token = localStorage.getItem('youtube_token');
+            if (!token) {
+                alert("Please connect to YouTube Music at the top first!");
+                return;
+            }
+
+            const selectEl = document.getElementById(`select-${cardIndex}`);
+            let targetPlaylistId = selectEl.value;
+
+            if (!targetPlaylistId) {
+                alert("Please select an existing YouTube Music playlist first!");
+                return;
+            }
+
+            try {
+                // 🌟 SECURED: Passing authorization header rather than appending via plaintext token URL params
+                const addRes = await fetch(`${BACKEND_URL}/playlist/youtube/add-track`, {
+                    method: "POST",
+                    headers: { 
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ playlist_id: targetPlaylistId, track_name: trackName })
+                });
+                
+                if (addRes.ok) {
+                    alert("✦ Track successfully synchronized!");
+                } else {
+                    alert("Target track synchronization mismatch.");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
         // ── AUTOCOMPLETE & DEBOUNCING PIPELINE ──
         let debounceTimer;
         const searchInput = document.getElementById('searchInput');
@@ -367,10 +487,9 @@
                 return;
             }
 
-            // Halt execution for 250ms to verify user is finished hitting keys
             debounceTimer = setTimeout(async () => {
                 try {
-                    const res = await fetch(`http://localhost:8000/autocomplete/?q=${encodeURIComponent(query)}`);
+                    const res = await fetch(`${BACKEND_URL}/autocomplete/?q=${encodeURIComponent(query)}`);
                     const data = await res.json();
                     
                     if (data.suggestions && data.suggestions.length > 0) {
@@ -390,10 +509,9 @@
         function selectSuggestion(songName) {
             searchInput.value = songName;
             suggestionsBox.style.display = 'none';
-            triggerSearch(); // Direct injection straight into XGBoost classification flow
+            triggerSearch();
         }
 
-        // Close dropdown securely if focus breaks away from input region
         document.addEventListener('click', (e) => {
             if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
                 suggestionsBox.style.display = 'none';
@@ -424,7 +542,7 @@
             const requestBody = { song_name: currentSearchQuery, num_recommendations: 5, rejected_track_ids: rejectedIds };
 
             try {
-                const response = await fetch("http://localhost:8000/recommend/", {
+                const response = await fetch(`${BACKEND_URL}/recommend/`, {
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(requestBody)
                 });
@@ -451,11 +569,22 @@
 
             const buildSongHTML = (song) => {
                 const percentage = (song.similarity_score * 100).toFixed(1);
+                const safeQuery = `${song.track_name} ${song.artists}`.replace(/"/g, '"');
+                
+                // Clean list mapping over existing live playlists only
+                let optionsHtml = userPlaylists.map(pl => 
+                    `<option value="${pl.id}" style="background:#06080f; color:#fff;">${pl.title}</option>`
+                ).join('');
+
+                if (!optionsHtml) {
+                    optionsHtml = `<option value="" style="background:#06080f; color:#ff7e54;">No playlists found</option>`;
+                }
+
                 return `
                 <div class="song-card">
                     <div style="width: 100%;">
                         <div class="song-title">${song.track_name}</div>
-                        <div class="song-meta" style="margin-bottom: 12px;">${song.artists} &nbsp;|&nbsp; ${song.track_genre}</div>
+                        <div class="song-meta" style="margin-bottom: 12px;">${song.artists}  |  ${song.track_genre}</div>
                         
                         <iframe style="border-radius:12px; margin-bottom: 12px;" 
                             src="https://open.spotify.com/embed/track/${song.track_id}?utm_source=generator&theme=0" 
@@ -463,11 +592,20 @@
                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
                         </iframe>
 
-                        <button class="exclude-btn" onclick="rejectSong(${song.index})">✕ Exclude</button>
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; gap: 12px;">
+                            <button class="exclude-btn" style="margin-top:0;" onclick="rejectSong(${song.index})">✕ Exclude</button>
+                            
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end;">
+                                <select class="playlist-select" id="select-${song.index}">
+                                    ${optionsHtml}
+                                </select>
+                                <button class="exclude-btn" style="margin-top:0; background:#ffd27f; color:#06080f; border-color:#ffd27f; font-weight:500;" onclick="addSingleTrack(${song.index}, '${safeQuery}')">┼ Add</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="song-score">
-                        <span style="font-family: 'Instrument Serif', serif; font-size: 20px; display:block;">${percentage}%</span>
-                        <span style="opacity: 0.5;">Match</span>
+                    <div class="song-score" style="margin-left: 20px; min-width: 50px;">
+                        <span style="font-family: 'Instrument Serif', serif; font-size: 22px; display:block; color: #ffd27f;">${percentage}%</span>
+                        <span style="opacity: 0.4; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase;">Match</span>
                     </div>
                 </div>
                 `;
@@ -478,6 +616,29 @@
 
             document.getElementById('resultsContainer').style.display = "grid";
         }
+
+        // ── LIVE OAUTH HANDSHAKE HARVESTER & INITIALIZER ──
+        window.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const youtubeToken = urlParams.get('youtube_token');
+
+            if (youtubeToken) {
+                localStorage.setItem('youtube_token', youtubeToken);
+                window.history.pushState({}, document.title, "/"); 
+            }
+
+            const ytBtn = document.getElementById('btn-yt');
+            
+            if (localStorage.getItem('youtube_token')) {
+                ytBtn.textContent = "✦ YouTube Music Connected";
+                ytBtn.classList.add('active');
+                // Run asynchronous query indexing on system load
+                await fetchUserPlaylists();
+            } else {
+                ytBtn.textContent = "○ Connect YouTube Music";
+                ytBtn.classList.remove('active');
+            }
+        });
     </script>
 </body>
 </html>
