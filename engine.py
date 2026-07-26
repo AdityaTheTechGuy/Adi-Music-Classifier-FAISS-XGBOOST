@@ -5,22 +5,39 @@ import joblib
 import os
 import xgboost as xgb
 
-def train_tuned_xgboost(X_train, y_train):
-    """Initializes and trains the regularized, hyperparameter-optimized XGBoost model."""
+def train_tuned_xgboost(
+    X_train,
+    y_train,
+    sample_weight=None
+):
     model = xgb.XGBClassifier(
-        n_estimators=300, learning_rate=0.03, max_depth=6,
-        subsample=0.7, colsample_bytree=0.7, min_child_weight=1,
-        random_state=42, eval_metric='mlogloss'
+        n_estimators=300,
+        learning_rate=0.03,
+        max_depth=6,
+        subsample=0.7,
+        colsample_bytree=0.7,
+        min_child_weight=1,
+        random_state=42,
+        eval_metric="mlogloss",
+        n_jobs=-1
     )
+
     print("Training optimized XGBoost classifier...")
-    model.fit(X_train, y_train)
-    print("XGBoost model training locked.")
+
+    model.fit(
+        X_train,
+        y_train,
+        sample_weight=sample_weight
+    )
+
+    print("XGBoost model training complete.")
+
     return model
 
 # Your 8 baseline audio features used for model training
 MODEL_FEATURES = ['acousticness', 'danceability', 'energy', 'instrumentalness', 'loudness', 'speechiness', 'tempo', 'valence']
 
-# Your 1,008 total structural columns (TF-IDF + scaling columns)
+# Your 8 total structural columns (TF-IDF + scaling columns)
 FEATURES = ['tempo', 'loudness', 'acousticness', 'danceability', 'energy', 'instrumentalness', 'speechiness', 'valence']
 
 def load_xgboost_classifier(model_path='xgboost_genre_artifacts.joblib'):
